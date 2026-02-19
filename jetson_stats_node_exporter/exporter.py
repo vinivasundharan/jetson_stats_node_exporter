@@ -60,6 +60,26 @@ class JetsonExporter(object):
 
         return gpu_gauge
 
+    def __gpu_load(self):
+        gpu_load_gauge = GaugeMetricFamily(
+            name="gpu_load_percentage",
+            documentation="GPU Load/Utilization Percentage from Jetson Stats",
+            labels=["nvidia_gpu"]
+        )
+
+        gpu_names = self.jetson.jtop_stats["gpu"].keys()
+
+        for gpu_name in gpu_names:
+            gpu_data = self.jetson.jtop_stats["gpu"][gpu_name]
+
+            # GPU utilization percentage from status.load
+            if "status" in gpu_data and "load" in gpu_data["status"]:
+                load = gpu_data["status"]["load"]
+                if isinstance(load, (int, float)):
+                    gpu_load_gauge.add_metric([gpu_name], value=load)
+
+        return gpu_load_gauge
+
     def __gpuram(self):
         gpuram_gauge = GaugeMetricFamily(
             name="gpuram",
@@ -240,6 +260,7 @@ class JetsonExporter(object):
         self.jetson.update()
         yield self.__cpu()
         yield self.__gpu()
+        yield self.__gpu_load()
         yield self.__ram()
         yield self.__gpuram()
         yield self.__swap()
