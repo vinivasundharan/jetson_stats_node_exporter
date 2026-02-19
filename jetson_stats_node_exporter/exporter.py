@@ -192,8 +192,7 @@ class JetsonExporter(object):
         nvenc_gauge = GaugeMetricFamily(
             name="nvenc_utilization_percentage",
             documentation="NVENC (Video Encoder) utilization from Jetson Stats",
-            labels=["statistic"],
-            unit="%"
+            labels=["statistic"]
         )
 
         # NVENC is in the stats dict
@@ -206,8 +205,7 @@ class JetsonExporter(object):
         nvdec_gauge = GaugeMetricFamily(
             name="nvdec_utilization_percentage",
             documentation="NVDEC (Video Decoder) utilization from Jetson Stats",
-            labels=["statistic"],
-            unit="%"
+            labels=["statistic"]
         )
 
         # NVDEC is in the stats dict
@@ -220,8 +218,7 @@ class JetsonExporter(object):
         nvjpg_gauge = GaugeMetricFamily(
             name="nvjpg_utilization_percentage",
             documentation="NVJPG (JPEG Encoder/Decoder) utilization from Jetson Stats",
-            labels=["statistic"],
-            unit="%"
+            labels=["statistic"]
         )
 
         # NVJPG is in the stats dict
