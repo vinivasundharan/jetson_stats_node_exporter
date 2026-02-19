@@ -1,6 +1,8 @@
 from prometheus_client.core import GaugeMetricFamily
 from .logger import factory
 from .jtop_stats import JtopObservable
+import subprocess
+import re
 
 
 class Jetson(object):
@@ -14,10 +16,47 @@ class Jetson(object):
         self.disk = {}
         self.disk_units = "GB"
         self.interval = update_period
+        self.video_engine_utilization = {}
 
     def update(self):
         self.jtop_stats = self.jtop_observer.read_stats()
         self.disk, self.disk_units = self.jtop_observer.get_storage_info()
+        self._parse_video_engine_utilization()
+
+    def _parse_video_engine_utilization(self):
+        """Parse tegrastats output for NVENC, NVDEC, NVJPG utilization percentages"""
+        try:
+            # Run tegrastats for one sample
+            result = subprocess.run(
+                ['tegrastats', '--interval', '1000'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+
+            # Get first line of output
+            lines = result.stdout.strip().split('\n')
+            if not lines:
+                return
+
+            line = lines[0]
+
+            # Parse NVENC, NVDEC, NVJPG percentages
+            # Pattern matches: NVENC 45%@793, NVDEC 20%@857, NVJPG 10%@729, etc.
+            pattern = r'(NVENC|NVDEC|NVJPG\d*)\s+(\d+)%'
+
+            self.video_engine_utilization = {}
+            for match in re.finditer(pattern, line):
+                engine_name = match.group(1)
+                utilization = int(match.group(2))
+                self.video_engine_utilization[engine_name] = utilization
+
+        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+            # If tegrastats fails, just leave utilization empty
+            self.video_engine_utilization = {}
+        except Exception:
+            # Catch any other errors silently
+            self.video_engine_utilization = {}
 
 
 class JetsonExporter(object):
@@ -211,66 +250,44 @@ class JetsonExporter(object):
     def __nvenc(self):
         nvenc_gauge = GaugeMetricFamily(
             name="nvenc_utilization_percentage",
-            documentation="NVENC (Video Encoder) utilization percentage from Jetson Stats",
+            documentation="NVENC (Video Encoder) utilization percentage from tegrastats",
             labels=["statistic"]
         )
 
-        # NVENC utilization is in the engines dict with 'val' field
-        if "engines" in self.jetson.jtop_stats:
-            engines = self.jetson.jtop_stats["engines"]
-            # Check if NVENC group exists
-            if "NVENC" in engines:
-                for engine_name, engine_data in engines["NVENC"].items():
-                    # Check if 'val' field exists (utilization percentage)
-                    if isinstance(engine_data, dict) and "val" in engine_data:
-                        value = engine_data["val"]
-                        if isinstance(value, (int, float)):
-                            nvenc_gauge.add_metric(["utilization"], value=value)
-                            break  # Only export first NVENC
+        # Get NVENC utilization from custom tegrastats parser
+        if "NVENC" in self.jetson.video_engine_utilization:
+            value = self.jetson.video_engine_utilization["NVENC"]
+            nvenc_gauge.add_metric(["utilization"], value=value)
 
         return nvenc_gauge
 
     def __nvdec(self):
         nvdec_gauge = GaugeMetricFamily(
             name="nvdec_utilization_percentage",
-            documentation="NVDEC (Video Decoder) utilization percentage from Jetson Stats",
+            documentation="NVDEC (Video Decoder) utilization percentage from tegrastats",
             labels=["statistic"]
         )
 
-        # NVDEC utilization is in the engines dict with 'val' field
-        if "engines" in self.jetson.jtop_stats:
-            engines = self.jetson.jtop_stats["engines"]
-            # Check if NVDEC group exists
-            if "NVDEC" in engines:
-                for engine_name, engine_data in engines["NVDEC"].items():
-                    # Check if 'val' field exists (utilization percentage)
-                    if isinstance(engine_data, dict) and "val" in engine_data:
-                        value = engine_data["val"]
-                        if isinstance(value, (int, float)):
-                            nvdec_gauge.add_metric(["utilization"], value=value)
-                            break  # Only export first NVDEC
+        # Get NVDEC utilization from custom tegrastats parser
+        if "NVDEC" in self.jetson.video_engine_utilization:
+            value = self.jetson.video_engine_utilization["NVDEC"]
+            nvdec_gauge.add_metric(["utilization"], value=value)
 
         return nvdec_gauge
 
     def __nvjpg(self):
         nvjpg_gauge = GaugeMetricFamily(
             name="nvjpg_utilization_percentage",
-            documentation="NVJPG (JPEG Encoder/Decoder) utilization percentage from Jetson Stats",
+            documentation="NVJPG (JPEG Encoder/Decoder) utilization percentage from tegrastats",
             labels=["statistic"]
         )
 
-        # NVJPG utilization is in the engines dict with 'val' field
-        if "engines" in self.jetson.jtop_stats:
-            engines = self.jetson.jtop_stats["engines"]
-            # Check if NVJPG group exists
-            if "NVJPG" in engines:
-                for engine_name, engine_data in engines["NVJPG"].items():
-                    # Check if 'val' field exists (utilization percentage)
-                    if isinstance(engine_data, dict) and "val" in engine_data:
-                        value = engine_data["val"]
-                        if isinstance(value, (int, float)):
-                            nvjpg_gauge.add_metric(["utilization"], value=value)
-                            break  # Only export first NVJPG
+        # Get NVJPG utilization from custom tegrastats parser
+        # Handles both NVJPG and NVJPG1 (if present)
+        for engine_name in ["NVJPG", "NVJPG1"]:
+            if engine_name in self.jetson.video_engine_utilization:
+                value = self.jetson.video_engine_utilization[engine_name]
+                nvjpg_gauge.add_metric([engine_name.lower()], value=value)
 
         return nvjpg_gauge
 
