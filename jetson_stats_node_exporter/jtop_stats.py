@@ -21,7 +21,8 @@ class JtopObservable(object):
             "pwr": self.jetson.power,
             # "swp": self.jetson.swap,
             "tmp": self.jetson.temperature,
-            "upt": self.jetson.uptime
+            "upt": self.jetson.uptime,
+            "engines": self.jetson.engine
         }
 
         return self.data
