@@ -197,7 +197,10 @@ class JetsonExporter(object):
 
         # NVENC is in the stats dict
         if "stats" in self.jetson.jtop_stats and "NVENC" in self.jetson.jtop_stats["stats"]:
-            nvenc_gauge.add_metric(["utilization"], value=self.jetson.jtop_stats["stats"]["NVENC"])
+            value = self.jetson.jtop_stats["stats"]["NVENC"]
+            # Only add metric if value is numeric (not 'OFF' or None)
+            if isinstance(value, (int, float)):
+                nvenc_gauge.add_metric(["utilization"], value=value)
 
         return nvenc_gauge
 
@@ -210,7 +213,10 @@ class JetsonExporter(object):
 
         # NVDEC is in the stats dict
         if "stats" in self.jetson.jtop_stats and "NVDEC" in self.jetson.jtop_stats["stats"]:
-            nvdec_gauge.add_metric(["utilization"], value=self.jetson.jtop_stats["stats"]["NVDEC"])
+            value = self.jetson.jtop_stats["stats"]["NVDEC"]
+            # Only add metric if value is numeric (not 'OFF' or None)
+            if isinstance(value, (int, float)):
+                nvdec_gauge.add_metric(["utilization"], value=value)
 
         return nvdec_gauge
 
@@ -223,7 +229,10 @@ class JetsonExporter(object):
 
         # NVJPG is in the stats dict
         if "stats" in self.jetson.jtop_stats and "NVJPG" in self.jetson.jtop_stats["stats"]:
-            nvjpg_gauge.add_metric(["utilization"], value=self.jetson.jtop_stats["stats"]["NVJPG"])
+            value = self.jetson.jtop_stats["stats"]["NVJPG"]
+            # Only add metric if value is numeric (not 'OFF' or None)
+            if isinstance(value, (int, float)):
+                nvjpg_gauge.add_metric(["utilization"], value=value)
 
         return nvjpg_gauge
 
