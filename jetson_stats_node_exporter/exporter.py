@@ -211,48 +211,66 @@ class JetsonExporter(object):
     def __nvenc(self):
         nvenc_gauge = GaugeMetricFamily(
             name="nvenc_utilization_percentage",
-            documentation="NVENC (Video Encoder) utilization from Jetson Stats",
+            documentation="NVENC (Video Encoder) utilization percentage from Jetson Stats",
             labels=["statistic"]
         )
 
-        # NVENC is in the stats dict
-        if "stats" in self.jetson.jtop_stats and "NVENC" in self.jetson.jtop_stats["stats"]:
-            value = self.jetson.jtop_stats["stats"]["NVENC"]
-            # Only add metric if value is numeric (not 'OFF' or None)
-            if isinstance(value, (int, float)):
-                nvenc_gauge.add_metric(["utilization"], value=value)
+        # NVENC utilization is in the engines dict with 'val' field
+        if "engines" in self.jetson.jtop_stats:
+            engines = self.jetson.jtop_stats["engines"]
+            # Check if NVENC group exists
+            if "NVENC" in engines:
+                for engine_name, engine_data in engines["NVENC"].items():
+                    # Check if 'val' field exists (utilization percentage)
+                    if isinstance(engine_data, dict) and "val" in engine_data:
+                        value = engine_data["val"]
+                        if isinstance(value, (int, float)):
+                            nvenc_gauge.add_metric(["utilization"], value=value)
+                            break  # Only export first NVENC
 
         return nvenc_gauge
 
     def __nvdec(self):
         nvdec_gauge = GaugeMetricFamily(
             name="nvdec_utilization_percentage",
-            documentation="NVDEC (Video Decoder) utilization from Jetson Stats",
+            documentation="NVDEC (Video Decoder) utilization percentage from Jetson Stats",
             labels=["statistic"]
         )
 
-        # NVDEC is in the stats dict
-        if "stats" in self.jetson.jtop_stats and "NVDEC" in self.jetson.jtop_stats["stats"]:
-            value = self.jetson.jtop_stats["stats"]["NVDEC"]
-            # Only add metric if value is numeric (not 'OFF' or None)
-            if isinstance(value, (int, float)):
-                nvdec_gauge.add_metric(["utilization"], value=value)
+        # NVDEC utilization is in the engines dict with 'val' field
+        if "engines" in self.jetson.jtop_stats:
+            engines = self.jetson.jtop_stats["engines"]
+            # Check if NVDEC group exists
+            if "NVDEC" in engines:
+                for engine_name, engine_data in engines["NVDEC"].items():
+                    # Check if 'val' field exists (utilization percentage)
+                    if isinstance(engine_data, dict) and "val" in engine_data:
+                        value = engine_data["val"]
+                        if isinstance(value, (int, float)):
+                            nvdec_gauge.add_metric(["utilization"], value=value)
+                            break  # Only export first NVDEC
 
         return nvdec_gauge
 
     def __nvjpg(self):
         nvjpg_gauge = GaugeMetricFamily(
             name="nvjpg_utilization_percentage",
-            documentation="NVJPG (JPEG Encoder/Decoder) utilization from Jetson Stats",
+            documentation="NVJPG (JPEG Encoder/Decoder) utilization percentage from Jetson Stats",
             labels=["statistic"]
         )
 
-        # NVJPG is in the stats dict
-        if "stats" in self.jetson.jtop_stats and "NVJPG" in self.jetson.jtop_stats["stats"]:
-            value = self.jetson.jtop_stats["stats"]["NVJPG"]
-            # Only add metric if value is numeric (not 'OFF' or None)
-            if isinstance(value, (int, float)):
-                nvjpg_gauge.add_metric(["utilization"], value=value)
+        # NVJPG utilization is in the engines dict with 'val' field
+        if "engines" in self.jetson.jtop_stats:
+            engines = self.jetson.jtop_stats["engines"]
+            # Check if NVJPG group exists
+            if "NVJPG" in engines:
+                for engine_name, engine_data in engines["NVJPG"].items():
+                    # Check if 'val' field exists (utilization percentage)
+                    if isinstance(engine_data, dict) and "val" in engine_data:
+                        value = engine_data["val"]
+                        if isinstance(value, (int, float)):
+                            nvjpg_gauge.add_metric(["utilization"], value=value)
+                            break  # Only export first NVJPG
 
         return nvjpg_gauge
 
