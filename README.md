@@ -1,17 +1,21 @@
 # Nvidia Jetson Prometheus Node Exporter (incl. GPU) - incl. JetPack 6.0
 
 This project contains a node exporter variation building on jetson-stats (jtop) rather than tegrastats directly.
-We export the following metrics: 
+We export the following metrics:
 - CPU
-- Memory 
-- GPU 
+- Memory
+- GPU
 - VRAM
 - Swap
+- EMC (External Memory Controller)
 - Component Temperature
 - Disk Utilization
 - System Uptime
+- **NVENC (Video Encoder utilization)**
+- **NVDEC (Video Decoder utilization)**
+- **NVJPG (JPEG Encoder/Decoder utilization)**
 
-We do not export: 
+We do not export:
 - Power consumption
 
 ## Installation

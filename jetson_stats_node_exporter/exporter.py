@@ -188,6 +188,48 @@ class JetsonExporter(object):
         uptime_gauge.add_metric(["alive"], value=self.jetson.jtop_stats["upt"].total_seconds())
         return uptime_gauge
 
+    def __nvenc(self):
+        nvenc_gauge = GaugeMetricFamily(
+            name="nvenc_utilization_percentage",
+            documentation="NVENC (Video Encoder) utilization from Jetson Stats",
+            labels=["statistic"],
+            unit="%"
+        )
+
+        # NVENC is in the stats dict
+        if "stats" in self.jetson.jtop_stats and "NVENC" in self.jetson.jtop_stats["stats"]:
+            nvenc_gauge.add_metric(["utilization"], value=self.jetson.jtop_stats["stats"]["NVENC"])
+
+        return nvenc_gauge
+
+    def __nvdec(self):
+        nvdec_gauge = GaugeMetricFamily(
+            name="nvdec_utilization_percentage",
+            documentation="NVDEC (Video Decoder) utilization from Jetson Stats",
+            labels=["statistic"],
+            unit="%"
+        )
+
+        # NVDEC is in the stats dict
+        if "stats" in self.jetson.jtop_stats and "NVDEC" in self.jetson.jtop_stats["stats"]:
+            nvdec_gauge.add_metric(["utilization"], value=self.jetson.jtop_stats["stats"]["NVDEC"])
+
+        return nvdec_gauge
+
+    def __nvjpg(self):
+        nvjpg_gauge = GaugeMetricFamily(
+            name="nvjpg_utilization_percentage",
+            documentation="NVJPG (JPEG Encoder/Decoder) utilization from Jetson Stats",
+            labels=["statistic"],
+            unit="%"
+        )
+
+        # NVJPG is in the stats dict
+        if "stats" in self.jetson.jtop_stats and "NVJPG" in self.jetson.jtop_stats["stats"]:
+            nvjpg_gauge.add_metric(["utilization"], value=self.jetson.jtop_stats["stats"]["NVJPG"])
+
+        return nvjpg_gauge
+
     def collect(self):
         self.jetson.update()
         yield self.__cpu()
@@ -201,3 +243,6 @@ class JetsonExporter(object):
         yield self.__integrated_power_total()
         yield self.__disk()
         yield self.__uptime()
+        yield self.__nvenc()
+        yield self.__nvdec()
+        yield self.__nvjpg()
