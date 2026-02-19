@@ -1,8 +1,8 @@
 from prometheus_client.core import GaugeMetricFamily
 from .logger import factory
 from .jtop_stats import JtopObservable
-import subprocess
 import re
+import os
 
 
 class Jetson(object):
@@ -27,21 +27,27 @@ class Jetson(object):
 
     def _parse_video_engine_utilization(self):
         """Parse tegrastats output for NVENC, NVDEC, NVJPG utilization percentages"""
-        try:
-            # Run tegrastats for one sample
-            result = subprocess.run(
-                ['tegrastats', '--interval', '1000'],
-                capture_output=True,
-                text=True,
-                timeout=2
-            )
+        tegrastats_log = '/tmp/tegrastats.log'
 
-            # Get first line of output
-            lines = result.stdout.strip().split('\n')
-            if not lines:
+        try:
+            # Check if log file exists
+            if not os.path.exists(tegrastats_log):
+                self.video_engine_utilization = {}
                 return
 
-            line = lines[0]
+            # Read the last line from tegrastats log file
+            with open(tegrastats_log, 'r') as f:
+                # Read last non-empty line
+                lines = f.readlines()
+                if not lines:
+                    self.video_engine_utilization = {}
+                    return
+
+                # Get the most recent line (last line)
+                line = lines[-1].strip()
+                if not line:
+                    self.video_engine_utilization = {}
+                    return
 
             # Parse NVENC, NVDEC, NVJPG percentages
             # Pattern matches: NVENC 45%@793, NVDEC 20%@857, NVJPG 10%@729, etc.
@@ -53,8 +59,8 @@ class Jetson(object):
                 utilization = int(match.group(2))
                 self.video_engine_utilization[engine_name] = utilization
 
-        except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
-            # If tegrastats fails, just leave utilization empty
+        except (IOError, FileNotFoundError):
+            # If file doesn't exist or can't be read, leave utilization empty
             self.video_engine_utilization = {}
         except Exception:
             # Catch any other errors silently
