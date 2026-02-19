@@ -6,7 +6,7 @@ import re
 
 
 class Jetson(object):
-    def __init__(self, update_period=1):
+    def __init__(self, update_period=1, enable_tegrastats=False):
 
         if float(update_period) < 0.5:
             raise BlockingIOError("Jetson Stats only works with 0.5s monitoring intervals and slower.")
@@ -17,11 +17,13 @@ class Jetson(object):
         self.disk_units = "GB"
         self.interval = update_period
         self.video_engine_utilization = {}
+        self.enable_tegrastats = enable_tegrastats
 
     def update(self):
         self.jtop_stats = self.jtop_observer.read_stats()
         self.disk, self.disk_units = self.jtop_observer.get_storage_info()
-        self._parse_video_engine_utilization()
+        if self.enable_tegrastats:
+            self._parse_video_engine_utilization()
 
     def _parse_video_engine_utilization(self):
         """Parse tegrastats output for NVENC, NVDEC, NVJPG utilization percentages"""
@@ -61,10 +63,11 @@ class Jetson(object):
 
 class JetsonExporter(object):
 
-    def __init__(self, update_period):
-        self.jetson = Jetson(update_period)
+    def __init__(self, update_period, enable_tegrastats=False):
+        self.jetson = Jetson(update_period, enable_tegrastats=enable_tegrastats)
         self.logger = factory(__name__)
         self.name = "Jetson"
+        self.enable_tegrastats = enable_tegrastats
 
     def __cpu(self):
         cpu_gauge = GaugeMetricFamily(
@@ -247,47 +250,119 @@ class JetsonExporter(object):
         uptime_gauge.add_metric(["alive"], value=self.jetson.jtop_stats["upt"].total_seconds())
         return uptime_gauge
 
+    def __nvenc_frequency(self):
+        """Export NVENC frequency metrics from jetson-stats"""
+        nvenc_freq_gauge = GaugeMetricFamily(
+            name="nvenc_frequency",
+            documentation="NVENC (Video Encoder) frequency from Jetson Stats",
+            labels=["statistic"],
+            unit="Hz"
+        )
+
+        if "engines" in self.jetson.jtop_stats and "NVENC" in self.jetson.jtop_stats["engines"]:
+            engines = self.jetson.jtop_stats["engines"]["NVENC"]
+            for engine_name, engine_data in engines.items():
+                if isinstance(engine_data, dict):
+                    if "cur" in engine_data:
+                        nvenc_freq_gauge.add_metric(["freq"], value=engine_data["cur"])
+                    if "min" in engine_data:
+                        nvenc_freq_gauge.add_metric(["min_freq"], value=engine_data["min"])
+                    if "max" in engine_data:
+                        nvenc_freq_gauge.add_metric(["max_freq"], value=engine_data["max"])
+                    break  # Only export first NVENC
+
+        return nvenc_freq_gauge
+
     def __nvenc(self):
+        """Export NVENC utilization percentage from tegrastats (if enabled)"""
         nvenc_gauge = GaugeMetricFamily(
             name="nvenc_utilization_percentage",
             documentation="NVENC (Video Encoder) utilization percentage from tegrastats",
             labels=["statistic"]
         )
 
-        # Get NVENC utilization from custom tegrastats parser
-        if "NVENC" in self.jetson.video_engine_utilization:
+        # Only export if tegrastats is enabled
+        if self.enable_tegrastats and "NVENC" in self.jetson.video_engine_utilization:
             value = self.jetson.video_engine_utilization["NVENC"]
             nvenc_gauge.add_metric(["utilization"], value=value)
 
         return nvenc_gauge
 
+    def __nvdec_frequency(self):
+        """Export NVDEC frequency metrics from jetson-stats"""
+        nvdec_freq_gauge = GaugeMetricFamily(
+            name="nvdec_frequency",
+            documentation="NVDEC (Video Decoder) frequency from Jetson Stats",
+            labels=["statistic"],
+            unit="Hz"
+        )
+
+        if "engines" in self.jetson.jtop_stats and "NVDEC" in self.jetson.jtop_stats["engines"]:
+            engines = self.jetson.jtop_stats["engines"]["NVDEC"]
+            for engine_name, engine_data in engines.items():
+                if isinstance(engine_data, dict):
+                    if "cur" in engine_data:
+                        nvdec_freq_gauge.add_metric(["freq"], value=engine_data["cur"])
+                    if "min" in engine_data:
+                        nvdec_freq_gauge.add_metric(["min_freq"], value=engine_data["min"])
+                    if "max" in engine_data:
+                        nvdec_freq_gauge.add_metric(["max_freq"], value=engine_data["max"])
+                    break  # Only export first NVDEC
+
+        return nvdec_freq_gauge
+
     def __nvdec(self):
+        """Export NVDEC utilization percentage from tegrastats (if enabled)"""
         nvdec_gauge = GaugeMetricFamily(
             name="nvdec_utilization_percentage",
             documentation="NVDEC (Video Decoder) utilization percentage from tegrastats",
             labels=["statistic"]
         )
 
-        # Get NVDEC utilization from custom tegrastats parser
-        if "NVDEC" in self.jetson.video_engine_utilization:
+        # Only export if tegrastats is enabled
+        if self.enable_tegrastats and "NVDEC" in self.jetson.video_engine_utilization:
             value = self.jetson.video_engine_utilization["NVDEC"]
             nvdec_gauge.add_metric(["utilization"], value=value)
 
         return nvdec_gauge
 
+    def __nvjpg_frequency(self):
+        """Export NVJPG frequency metrics from jetson-stats"""
+        nvjpg_freq_gauge = GaugeMetricFamily(
+            name="nvjpg_frequency",
+            documentation="NVJPG (JPEG Encoder/Decoder) frequency from Jetson Stats",
+            labels=["engine", "statistic"],
+            unit="Hz"
+        )
+
+        if "engines" in self.jetson.jtop_stats and "NVJPG" in self.jetson.jtop_stats["engines"]:
+            engines = self.jetson.jtop_stats["engines"]["NVJPG"]
+            for engine_name, engine_data in engines.items():
+                if isinstance(engine_data, dict):
+                    if "cur" in engine_data:
+                        nvjpg_freq_gauge.add_metric([engine_name.lower(), "freq"], value=engine_data["cur"])
+                    if "min" in engine_data:
+                        nvjpg_freq_gauge.add_metric([engine_name.lower(), "min_freq"], value=engine_data["min"])
+                    if "max" in engine_data:
+                        nvjpg_freq_gauge.add_metric([engine_name.lower(), "max_freq"], value=engine_data["max"])
+
+        return nvjpg_freq_gauge
+
     def __nvjpg(self):
+        """Export NVJPG utilization percentage from tegrastats (if enabled)"""
         nvjpg_gauge = GaugeMetricFamily(
             name="nvjpg_utilization_percentage",
             documentation="NVJPG (JPEG Encoder/Decoder) utilization percentage from tegrastats",
             labels=["statistic"]
         )
 
-        # Get NVJPG utilization from custom tegrastats parser
-        # Handles both NVJPG and NVJPG1 (if present)
-        for engine_name in ["NVJPG", "NVJPG1"]:
-            if engine_name in self.jetson.video_engine_utilization:
-                value = self.jetson.video_engine_utilization[engine_name]
-                nvjpg_gauge.add_metric([engine_name.lower()], value=value)
+        # Only export if tegrastats is enabled
+        if self.enable_tegrastats:
+            # Handles both NVJPG and NVJPG1 (if present)
+            for engine_name in ["NVJPG", "NVJPG1"]:
+                if engine_name in self.jetson.video_engine_utilization:
+                    value = self.jetson.video_engine_utilization[engine_name]
+                    nvjpg_gauge.add_metric([engine_name.lower()], value=value)
 
         return nvjpg_gauge
 
@@ -305,6 +380,12 @@ class JetsonExporter(object):
         yield self.__integrated_power_total()
         yield self.__disk()
         yield self.__uptime()
-        yield self.__nvenc()
-        yield self.__nvdec()
-        yield self.__nvjpg()
+        # Video engine frequency metrics (always exported)
+        yield self.__nvenc_frequency()
+        yield self.__nvdec_frequency()
+        yield self.__nvjpg_frequency()
+        # Video engine utilization metrics (only if tegrastats enabled)
+        if self.enable_tegrastats:
+            yield self.__nvenc()
+            yield self.__nvdec()
+            yield self.__nvjpg()
