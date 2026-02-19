@@ -27,7 +27,7 @@ class Jetson(object):
 
     def _parse_video_engine_utilization(self):
         """Parse tegrastats output for NVENC, NVDEC, NVJPG utilization percentages"""
-        tegrastats_log = '/tmp/tegrastats.log'
+        tegrastats_log = '/var/log/tegrastats/tegrastats.log'
 
         try:
             # Check if log file exists
